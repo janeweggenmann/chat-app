@@ -3,10 +3,13 @@ import { View, Text, StyleSheet } from 'react-native';
 
 
 export default class Chat extends React.Component {
+  componentDidMount() {
+    let name = this.props.route.params.name;
+    this.props.navigation.setOptions({ title: name });
+  }
+
   render() {
     let { name, backgroundColor } = this.props.route.params;
-
-    this.props.navigation.setOptions({ title: name });
 
     return (
       <View style={[styles.container, { backgroundColor: backgroundColor }]}>

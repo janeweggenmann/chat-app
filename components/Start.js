@@ -10,6 +10,7 @@ export default class Start extends React.Component {
     };
   }
 
+  //when user clicks start chatting button, send name and background color they selected to chat screen
   startChatting = (name, backgroundColor) => {
     this.props.navigation.navigate('Chat', {
       name: this.state.name,
@@ -33,6 +34,7 @@ export default class Start extends React.Component {
                 />
                 <TextInput
                   style={styles.input}
+                  /* when user enters their name, change the name state to their name */
                   onChangeText={(name) => this.setState({ name })}
                   value={this.state.name}
                   placeholder='Your Name'
@@ -40,6 +42,7 @@ export default class Start extends React.Component {
               </View>
               <Text style={styles.chooseColorText}>Choose Background Color</Text>
               <View style={styles.colorsContainer}>
+                {/* when user clicks on a color, change the background color state to that color */}
                 <TouchableOpacity
                   style={[styles.colorOptions, { backgroundColor: '#090C08' }]}
                   onPress={() => this.setState({ backgroundColor: '#090C08' })} />
@@ -56,6 +59,7 @@ export default class Start extends React.Component {
               <Pressable
                 style={styles.button}
                 title="Start Chatting"
+                //send name and background color state when user clicks start chatting button
                 onPress={() => this.startChatting(this.state.name, this.state.backgroundColor)}
               >
                 <Text style={styles.buttonText}>Start Chatting</Text>

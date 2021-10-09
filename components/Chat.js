@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, StyleSheet, Platform, KeyboardAvoidingView } from 'react-native';
-import { GiftedChat, Bubble, Day, SystemMessage } from 'react-native-gifted-chat';
-import { YellowBox } from 'react-native';
-YellowBox.ignoreWarnings(['Setting a timer']);
+import { GiftedChat, Bubble, Day, SystemMessage, InputToolbar } from 'react-native-gifted-chat';
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import NetInfo from '@react-native-community/netinfo';
 
 const firebase = require('firebase');
 require('firebase/firestore');
@@ -18,8 +18,16 @@ const firebaseConfig = {
 };
 
 export default class Chat extends React.Component {
-  constructor() {
-    super();
+  constructor(props) {
+    super(props);
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    //references the messages collection in the forestore app
+    this.referenceChatMessages = firebase.firestore().collection("messages");
+    this.referenceMessageUser = null;
+
     this.state = {
       messages: [],
       uid: 0,
@@ -28,53 +36,42 @@ export default class Chat extends React.Component {
         _id: "",
         name: "",
       },
+      isConnected: false,
     };
-
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
-    }
-    //references the messages collection in the forestore app
-    this.referenceChatMessages = firebase.firestore().collection("messages");
-    this.referenceMessageUser = null;
   }
 
-  componentDidMount() {
-    //get name from start screen and change title of page to user's name
-    const name = this.props.route.params.name;
-    this.props.navigation.setOptions({ title: name });
-
-    this.authUnsubscribe = firebase.auth().onAuthStateChanged((user) => {
-      if (!user) {
-        firebase.auth().signInAnonymously();
-      }
+  async getMessages() {
+    let messages = '';
+    try {
+      messages = (await AsyncStorage.getItem('messages')) || [];
       this.setState({
-        uid: user.uid,
-        messages: [],
-        user: {
-          _id: user.uid,
-          name: name,
-        }
+        messages: JSON.parse(messages),
       });
+    } catch (error) {
+      console.log(error.message);
+    }
+  }
 
-      // Reference only the messages of active user
-      this.referenceMessagesUser = firebase.firestore().collection('messages').where('uid', '==', this.state.uid);
+  async saveMessages() {
+    try {
+      await AsyncStorage.setItem(
+        "messages",
+        JSON.stringify(this.state.messages)
+      );
+    } catch (error) {
+      console.log(error.message);
+    }
+  }
 
-      this.unsubscribe = this.referenceChatMessages
-        .orderBy("createdAt", "desc")
-        .onSnapshot(this.onCollectionUpdate);
-    });
-
-    //set a system message when user enters the chat
-    this.setState({
-      messages: [
-        {
-          _id: 2,
-          text: `${name} has entered the chat`,
-          createdAt: new Date(),
-          system: true,
-        },
-      ],
-    })
+  async deleteMessages() {
+    try {
+      await AsyncStorage.removeItem("messages");
+      this.setState({
+        messages: [],
+      });
+    } catch (error) {
+      console.log(error.message);
+    }
   }
 
   // Add messages to database
@@ -98,6 +95,7 @@ export default class Chat extends React.Component {
       // Add messages from addMessages function so they are saved to the server
       () => {
         this.addMessages();
+        this.saveMessages();
       })
   }
 
@@ -123,8 +121,52 @@ export default class Chat extends React.Component {
     });
   };
 
+  componentDidMount() {
+    //get name from start screen and change title of page to user's name
+    const name = this.props.route.params.name;
+    this.props.navigation.setOptions({ title: name });
+
+    //check if user is online or offline
+    NetInfo.fetch().then(connection => {
+      if (connection.isConnected) {
+        this.setState({ isConnected: true });
+        console.log('online');
+
+        this.authUnsubscribe = firebase.auth().onAuthStateChanged((user) => {
+          if (!user) {
+            firebase.auth().signInAnonymously();
+          }
+          this.setState({
+            uid: user.uid,
+            messages: [],
+            user: {
+              _id: user.uid,
+              name: name,
+            },
+          });
+          // Reference only the messages of active user
+          this.referenceMessagesUser = firebase.firestore().collection('messages').where('uid', '==', this.state.uid);
+          this.unsubscribe = this.referenceChatMessages
+            .orderBy("createdAt", "desc")
+            .onSnapshot(this.onCollectionUpdate);
+        });
+      } else {
+        console.log('offline');
+        this.setState({ isConnected: false })
+        // Calls messeages from offline storage
+        this.getMessages();
+        this.renderInputToolbar();
+      }
+    });
+  }
+
   componentWillUnmount() {
-    this.unsubscribe();
+    if (this.state.isConnected == false) {
+    } else {
+      // stop online authentication
+      this.authUnsubscribe();
+      this.unsubscribe();
+    }
   }
 
   //change the color of both chat bubbles
@@ -197,11 +239,11 @@ export default class Chat extends React.Component {
                 {...props}
                 wrapperStyle={{
                   right: { backgroundColor: '#738A60' },
-                  left: { backgroundColor: '#C8C8C8' }
+                  left: { backgroundColor: '#e3e3e3' }
                 }}
                 textProps={{
                   left: {
-                    style: { color: 'black' }
+                    style: { color: 'black' },
                   },
                   right: {
                     style: { color: 'white' }
@@ -230,6 +272,17 @@ export default class Chat extends React.Component {
     )
   }
 
+  renderInputToolbar(props) {
+    if (this.state.isConnected == false) {
+    } else {
+      return (
+        <InputToolbar
+          {...props}
+        />
+      );
+    }
+  }
+
   render() {
     //get name and backgroundColor the user selected on start screen to alter chat view
     let { backgroundColor } = this.props.route.params;
@@ -242,6 +295,7 @@ export default class Chat extends React.Component {
             renderBubble={this.renderBubble.bind(this)}
             renderDay={this.renderDay.bind(this)}
             renderSystemMessage={this.renderSystemMessage.bind(this)}
+            renderInputToolbar={this.renderInputToolbar.bind(this)}
             messages={this.state.messages}
             onSend={messages => this.onSend(messages)}
             isTyping={true}
@@ -263,6 +317,7 @@ const styles = StyleSheet.create({
   giftedChat: {
     flex: 1,
     width: '88%',
-    paddingBottom: 10,
+    paddingBottom: 20,
+    justifyContent: 'center',
   }
 });

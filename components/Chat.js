@@ -1,6 +1,9 @@
 import React from 'react';
 import { View, StyleSheet, Platform, KeyboardAvoidingView } from 'react-native';
 import { GiftedChat, Bubble, Day, SystemMessage } from 'react-native-gifted-chat';
+import { YellowBox } from 'react-native';
+YellowBox.ignoreWarnings(['Setting a timer']);
+
 const firebase = require('firebase');
 require('firebase/firestore');
 

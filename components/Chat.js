@@ -1,9 +1,14 @@
 import React from 'react';
 import { View, StyleSheet, Platform, KeyboardAvoidingView } from 'react-native';
 import { GiftedChat, Bubble, Day, SystemMessage, InputToolbar } from 'react-native-gifted-chat';
-import AsyncStorage from '@react-native-async-storage/async-storage'
+
+//Async Storage
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+//NetInfo
 import NetInfo from '@react-native-community/netinfo';
 
+//Firebase DB
 const firebase = require('firebase');
 require('firebase/firestore');
 
@@ -25,7 +30,7 @@ export default class Chat extends React.Component {
       firebase.initializeApp(firebaseConfig);
     }
     //references the messages collection in the forestore app
-    this.referenceChatMessages = firebase.firestore().collection("messages");
+    this.referenceChatMessages = firebase.firestore().collection('messages');
     this.referenceMessageUser = null;
 
     this.state = {
@@ -43,21 +48,18 @@ export default class Chat extends React.Component {
   async getMessages() {
     let messages = '';
     try {
-      messages = (await AsyncStorage.getItem('messages')) || [];
+      messages = await AsyncStorage.getItem('messages') || [];
       this.setState({
-        messages: JSON.parse(messages),
+        messages: JSON.parse(messages)
       });
     } catch (error) {
       console.log(error.message);
     }
-  }
+  };
 
   async saveMessages() {
     try {
-      await AsyncStorage.setItem(
-        "messages",
-        JSON.stringify(this.state.messages)
-      );
+      await AsyncStorage.setItem('messages', JSON.stringify(this.state.messages));
     } catch (error) {
       console.log(error.message);
     }
@@ -65,10 +67,10 @@ export default class Chat extends React.Component {
 
   async deleteMessages() {
     try {
-      await AsyncStorage.removeItem("messages");
+      await AsyncStorage.removeItem('messages');
       this.setState({
-        messages: [],
-      });
+        messages: []
+      })
     } catch (error) {
       console.log(error.message);
     }
@@ -82,19 +84,20 @@ export default class Chat extends React.Component {
       uid: this.state.uid,
       _id: message._id,
       createdAt: message.createdAt,
-      text: message.text,
+      text: message.text || null,
       user: message.user,
     });
   }
 
   //when a user hits send, append the new message to the messages state object
   onSend(messages = []) {
-    this.setState((previousState) => ({
+    this.setState(previousState => ({
       messages: GiftedChat.append(previousState.messages, messages),
     }),
-      // Add messages from addMessages function so they are saved to the server
+      // Make sure to call addMessages so they get saved to the server
       () => {
         this.addMessages();
+        // Calls function saves to local storage
         this.saveMessages();
       })
   }
@@ -109,18 +112,17 @@ export default class Chat extends React.Component {
       messages.push({
         _id: data._id,
         createdAt: data.createdAt.toDate(),
-        text: data.text,
+        text: data.text || '',
         user: {
           _id: data.user._id,
           name: data.user.name,
-        },
+        }
       });
     });
     this.setState({
       messages,
     });
-  };
-
+  }
   componentDidMount() {
     //get name from start screen and change title of page to user's name
     const name = this.props.route.params.name;
@@ -132,16 +134,15 @@ export default class Chat extends React.Component {
         this.setState({ isConnected: true });
         console.log('online');
 
-        this.authUnsubscribe = firebase.auth().onAuthStateChanged((user) => {
+        this.authUnsubscribe = firebase.auth().onAuthStateChanged(async (user) => {
           if (!user) {
-            firebase.auth().signInAnonymously();
+            await firebase.auth().signInAnonymously();
           }
           this.setState({
-            uid: user.uid,
             messages: [],
             user: {
-              _id: user.uid,
-              name: name,
+              _id: user._id,
+              name: user.name,
             },
           });
           // Reference only the messages of active user

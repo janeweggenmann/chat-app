@@ -23,16 +23,8 @@ const firebaseConfig = {
 };
 
 export default class Chat extends React.Component {
-  constructor(props) {
-    super(props);
-
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
-    }
-    //references the messages collection in the forestore app
-    this.referenceChatMessages = firebase.firestore().collection('messages');
-    this.referenceMessageUser = null;
-
+  constructor() {
+    super();
     this.state = {
       messages: [],
       uid: 0,
@@ -43,6 +35,13 @@ export default class Chat extends React.Component {
       },
       isConnected: false,
     };
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    //references the messages collection in the forestore app
+    this.referenceChatMessages = firebase.firestore().collection('messages');
+
   }
 
   async getMessages() {
@@ -81,10 +80,9 @@ export default class Chat extends React.Component {
     const message = this.state.messages[0];
     // add a new messages to the collection
     this.referenceChatMessages.add({
-      uid: this.state.uid,
       _id: message._id,
-      createdAt: message.createdAt,
       text: message.text || null,
+      createdAt: message.createdAt,
       user: message.user,
     });
   }
@@ -134,22 +132,26 @@ export default class Chat extends React.Component {
         this.setState({ isConnected: true });
         console.log('online');
 
+        // listen to authentication events
         this.authUnsubscribe = firebase.auth().onAuthStateChanged(async (user) => {
           if (!user) {
             await firebase.auth().signInAnonymously();
           }
+
+          // Update user state with active user
           this.setState({
+            uid: user.uid,
             messages: [],
             user: {
-              _id: user._id,
-              name: user.name,
-            },
+              _id: user.uid,
+              name: name,
+            }
           });
-          // Reference only the messages of active user
-          this.referenceMessagesUser = firebase.firestore().collection('messages').where('uid', '==', this.state.uid);
-          this.unsubscribe = this.referenceChatMessages
-            .orderBy("createdAt", "desc")
-            .onSnapshot(this.onCollectionUpdate);
+
+          // Create reference to the active users messages
+          this.referenceChatMessages = firebase.firestore().collection('messages');
+          // Listen for collection changes
+          this.unsubscribe = this.referenceChatMessages.orderBy("createdAt", "desc").onSnapshot(this.onCollectionUpdate);
         });
       } else {
         console.log('offline');

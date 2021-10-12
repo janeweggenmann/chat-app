@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, StyleSheet, Platform, KeyboardAvoidingView } from 'react-native';
 import { GiftedChat, Bubble, Day, SystemMessage, InputToolbar } from 'react-native-gifted-chat';
+import CustomActions from './CustomActions';
+import MapView from 'react-native-maps';
 
 //Async Storage
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -28,11 +30,11 @@ export default class Chat extends React.Component {
     this.state = {
       messages: [],
       uid: 0,
-      loggedInText: "Logging in...",
       user: {
         _id: "",
         name: "",
       },
+      image: null,
       isConnected: false,
     };
 
@@ -84,6 +86,8 @@ export default class Chat extends React.Component {
       text: message.text || null,
       createdAt: message.createdAt,
       user: message.user,
+      image: message.image || null,
+      location: message.location || null
     });
   }
 
@@ -114,13 +118,16 @@ export default class Chat extends React.Component {
         user: {
           _id: data.user._id,
           name: data.user.name,
-        }
+        },
+        image: data.image,
+        location: data.location
       });
     });
     this.setState({
       messages,
     });
   }
+
   componentDidMount() {
     //get name from start screen and change title of page to user's name
     const name = this.props.route.params.name;
@@ -286,6 +293,44 @@ export default class Chat extends React.Component {
     }
   }
 
+  renderCustomActions = (props) => {
+    return <CustomActions {...props} />;
+  };
+
+  renderCustomView(props) {
+    const { currentMessage } = props;
+    if (currentMessage.location) {
+      return (
+        <View
+          style={{
+            borderRadius: 13,
+            width: 175,
+            height: 200,
+            margin: 3,
+            overflow: 'hidden',
+            overflow: 'hidden',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+          <MapView
+            style={{
+              width: '100%',
+              height: '100%'
+            }}
+            region={{
+              latitude: currentMessage.location.latitude,
+              longitude: currentMessage.location.longitude,
+              latitudeDelta: 0.0922,
+              longitudeDelta: 0.0421,
+            }}
+          />
+        </View>
+      );
+    }
+    return null;
+  }
+
+
   render() {
     //get name and backgroundColor the user selected on start screen to alter chat view
     let { backgroundColor } = this.props.route.params;
@@ -296,13 +341,19 @@ export default class Chat extends React.Component {
           <GiftedChat
             //change the color of the chat bubble
             renderBubble={this.renderBubble.bind(this)}
+            //change color of date
             renderDay={this.renderDay.bind(this)}
+            //change color of system message
             renderSystemMessage={this.renderSystemMessage.bind(this)}
             renderInputToolbar={this.renderInputToolbar.bind(this)}
             messages={this.state.messages}
             onSend={messages => this.onSend(messages)}
             isTyping={true}
+            isConnected={this.state.isConnected}
             user={this.state.user}
+            //custom actions (take photo, select photo, send location)
+            renderActions={this.renderCustomActions.bind(this)}
+            renderCustomView={this.renderCustomView.bind(this)}
           />
           {Platform.OS === 'android' ? <KeyboardAvoidingView behavior="height" /> : null}
         </View>
@@ -314,13 +365,14 @@ export default class Chat extends React.Component {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    overflow: 'hidden',
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center'
   },
   giftedChat: {
     flex: 1,
-    width: '88%',
+    width: '90%',
     paddingBottom: 20,
-    justifyContent: 'center',
+    justifyContent: 'center'
   }
 });
